@@ -16,7 +16,7 @@ renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 container.appendChild(renderer.domElement);
 
-// ---------- کنترلر برای چرخش ----------
+// ---------- کنترلر ----------
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
@@ -31,24 +31,28 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 2);
 dirLight.position.set(2, 5, 3);
 scene.add(dirLight);
 
-const fillLight = new THREE.DirectionalLight(0x6c5ce7, 0.5);
-fillLight.position.set(-2, 1, 4);
-scene.add(fillLight);
-
-// ---------- زمین (برای زیبایی) ----------
+// ---------- زمین ----------
 const gridHelper = new THREE.GridHelper(10, 20, 0x6c5ce7, 0x333366);
 gridHelper.position.y = -0.5;
 scene.add(gridHelper);
 
-// ---------- نمایشگر سه‌بعدی (همان صفحه وب) ----------
-// ما از یک ویدیوی جعلی استفاده می‌کنیم که بعداً با iframe واقعی جایگزین می‌شه
-const textureLoader = new THREE.TextureLoader();
-const placeholderTexture = textureLoader.load('https://via.placeholder.com/1024x768/1a1a2a/6c5ce7?text=IESTM+AR+Browser');
+// ---------- ایجاد یک Canvas برای رندر کردن وب‌سایت ----------
+// این Canvas رو به عنوان تکسچر به صفحه سه‌بعدی می‌دیم
+const canvas2D = document.createElement('canvas');
+canvas2D.width = 1024;
+canvas2D.height = 768;
+const ctx = canvas2D.getContext('2d');
 
+// یک تکسچر از Canvas می‌سازیم که به‌روزرسانی میشه
+const texture = new THREE.CanvasTexture(canvas2D);
+texture.minFilter = THREE.LinearFilter;
+texture.magFilter = THREE.LinearFilter;
+
+// ---------- ساخت صفحه نمایش سه‌بعدی ----------
 const screenMaterial = new THREE.MeshStandardMaterial({
-    map: placeholderTexture,
+    map: texture,
     emissive: new THREE.Color(0x6c5ce7),
-    emissiveIntensity: 0.1,
+    emissiveIntensity: 0.05,
     roughness: 0.3,
     metalness: 0.1,
     side: THREE.DoubleSide,
@@ -59,7 +63,7 @@ const screen = new THREE.Mesh(screenGeometry, screenMaterial);
 screen.position.set(0, 1.5, 0);
 scene.add(screen);
 
-// ---------- فریم یا قاب دور صفحه (برای زیبایی) ----------
+// ---------- فریم دور صفحه ----------
 const frameMaterial = new THREE.MeshStandardMaterial({
     color: 0x2a2a4a,
     emissive: 0x6c5ce7,
@@ -72,6 +76,71 @@ const frameGeometry = new THREE.BoxGeometry(4.4, 3.4, 0.15);
 const frame = new THREE.Mesh(frameGeometry, frameMaterial);
 frame.position.set(0, 1.5, -0.1);
 scene.add(frame);
+
+// ---------- تابع نمایش وب‌سایت در Canvas ----------
+function loadWebsiteOnScreen(url) {
+    // نمایش پیام در حال بارگذاری
+    ctx.fillStyle = '#1a1a2a';
+    ctx.fillRect(0, 0, canvas2D.width, canvas2D.height);
+    ctx.fillStyle = '#6c5ce7';
+    ctx.font = 'bold 40px Tahoma';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏳ در حال بارگذاری...', canvas2D.width / 2, canvas2D.height / 2 - 20);
+    ctx.font = '20px Tahoma';
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillText(url, canvas2D.width / 2, canvas2D.height / 2 + 50);
+    texture.needsUpdate = true;
+
+    // ایجاد iframe مخفی
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.style.width = canvas2D.width + 'px';
+    iframe.style.height = canvas2D.height + 'px';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-9999px';
+    iframe.style.left = '-9999px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    document.body.appendChild(iframe);
+
+    // وقتی iframe بارگذاری شد
+    iframe.onload = () => {
+        try {
+            // رسم iframe روی Canvas
+            ctx.drawImage(iframe, 0, 0, canvas2D.width, canvas2D.height);
+            texture.needsUpdate = true;
+            console.log('✅ صفحه با موفقیت بارگذاری شد:', url);
+            
+            // آپدیت کردن هر ثانیه برای صفحات پویا
+            setInterval(() => {
+                try {
+                    ctx.drawImage(iframe, 0, 0, canvas2D.width, canvas2D.height);
+                    texture.needsUpdate = true;
+                } catch (e) {
+                    console.log('⏳ در حال بروزرسانی...');
+                }
+            }, 1000);
+            
+        } catch (error) {
+            console.error('❌ خطا در نمایش صفحه:', error);
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold 30px Tahoma';
+            ctx.textAlign = 'center';
+            ctx.fillText('❌ خطا در بارگذاری', canvas2D.width / 2, canvas2D.height / 2);
+            texture.needsUpdate = true;
+        }
+    };
+
+    // اگر iframe بارگذاری نشد
+    iframe.onerror = () => {
+        ctx.fillStyle = '#ffaa44';
+        ctx.font = 'bold 30px Tahoma';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ سایت قابل دسترسی نیست', canvas2D.width / 2, canvas2D.height / 2);
+        texture.needsUpdate = true;
+    };
+}
 
 // ---------- حلقه انیمیشن ----------
 function animate() {
@@ -92,37 +161,34 @@ window.addEventListener('resize', () => {
 
 // ---------- دکمه‌ها ----------
 document.getElementById('goBtn').addEventListener('click', () => {
-    const url = document.getElementById('urlInput').value;
+    const url = document.getElementById('urlInput').value.trim();
     if (url) {
-        // اینجا باید صفحه وب رو در iframe بارگذاری کنیم و به‌عنوان تکسچر روی صفحه بذاریم
-        console.log('🌐 بارگذاری:', url);
-        alert('در حال حاضر فقط حالت نمایشی فعال است. به‌زودی اتصال واقعی اضافه می‌شود!');
-        // بعداً: رندر کردن iframe به عنوان تکسچر
+        // اگر کاربر http:// یا https:// رو نزده بود، اضافه کن
+        let finalUrl = url;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            finalUrl = 'https://' + url;
+        }
+        loadWebsiteOnScreen(finalUrl);
+    } else {
+        alert('لطفاً یک آدرس وارد کنید!');
     }
 });
 
+// Enter Key
+document.getElementById('urlInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('goBtn').click();
+    }
+});
+
+// ---------- دکمه AR (برای آینده) ----------
 document.getElementById('arBtn').addEventListener('click', () => {
     alert('🌍 حالت واقعیت افزوده (AR) به‌زودی اضافه می‌شود!');
 });
 
-// ---------- پیام خوش‌آمدگویی ----------
-console.log('🚀 IESTM AR Browser Loaded Successfully!');
-// این تابع رو به main.js اضافه کنید
-function loadWebsiteOnScreen(url) {
-    // یک iframe مخفی بسازید
-    const iframe = document.createElement('iframe');
-    iframe.src = url;
-    iframe.style.width = '1024px';
-    iframe.style.height = '768px';
-    iframe.style.position = 'absolute';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    document.body.appendChild(iframe);
+// ---------- بارگذاری پیش‌فرض یک سایت نمونه ----------
+setTimeout(() => {
+    loadWebsiteOnScreen('https://threejs.org');
+}, 500);
 
-    // بعد از بارگذاری، از iframe عکس بگیرید و به تکسچر تبدیل کنید
-    iframe.onload = () => {
-        // اینجا باید از iframe عکس بگیرید و به تکسچر سه‌بعدی بدید
-        // ولی به خاطر محدودیت CORS، این روش فقط برای سایت‌های خاص کار می‌کنه
-        console.log('✅ صفحه بارگذاری شد:', url);
-    };
-}
+console.log('🚀 IESTM AR Browser Loaded Successfully!');
