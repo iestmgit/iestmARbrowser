@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IESTM AR Browser</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <!-- نوار آدرس -->
+    <div id="toolbar">
+        <input type="text" id="urlInput" value="https://threejs.org" placeholder="آدرس وبسایت را وارد کنید..." />
+        <button id="goBtn">🚀 برو</button>
+        <button id="arBtn">🌐 AR</button>
+    </div>
+
+    <!-- صحنه سه‌بعدی -->
+    <div id="canvasContainer"></div>
+
+    <!-- اسکریپت‌ها -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
